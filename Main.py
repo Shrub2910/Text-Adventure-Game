@@ -103,6 +103,24 @@ class Player(ThingHolder):
         if self.health > 100:
             self.health = 100
 
+    def is_dead(self):
+        if self.health <= 0:
+            return True
+        else:
+            return False
+
+    def is_in_room(self, room):
+        if self.room.name == room:
+            return True
+        else:
+            return False
+
+    def has_item(self, item):
+        for thing in self.things:
+            if thing.name.strip().lower() == item.strip().lower():
+                return True
+        return False
+
 
 class Room(ThingHolder):
     def __init__(self, name, description, n, s, w, e, things):
@@ -157,7 +175,7 @@ class ShopRoom(Room):
                 print("-", thing.name, thing.value)
             choice = input("").strip().lower()
             for thing in self.things:
-                if thing.name.strip().lower() == choice:
+                if thing.name.strip().lower().startswith(choice):
                     if money >= thing.value:
                         print("You bought", thing.name)
                         self.remove(thing)
@@ -172,7 +190,7 @@ class ShopRoom(Room):
                 print("-", thing.name, thing.value)
             choice = input("").strip().lower()
             for thing in items:
-                if thing.name.strip().lower() == choice:
+                if thing.name.strip().lower().startswith(choice):
                     print("You sold", thing.name)
                     self.add(thing)
                     money += thing.value
@@ -208,27 +226,6 @@ def generate_ghost_drops(treasures):
 
 def generate_ghost(ghosts):
     return ghosts[random.randint(1, len(ghosts)-1)]
-
-
-# function that checks if a player has an item
-def has_item(player, item):
-    for thing in player.things:
-        if thing.name.strip().lower() == item.strip().lower():
-            return True
-    return False
-
-
-# function that checks if a player is in a room
-def is_in_room(player, room):
-    if player.room.name == room:
-        return True
-    return False
-
-
-def is_dead(player):
-    if player.health <= 0:
-        return True
-    return False
 
 
 def where(player):
@@ -278,12 +275,13 @@ def main():
     rooms = [
         Room("Outside", "Very Dark", 1, 7, -1, 2, []),
         Room("Entrance", "There is a dimly lit light bulb. Nothing else.", 3, 0, 4, -1, generate_treasures(treasures)),
-        HauntedRoom("Green House", "Its very green", -1, -1, 0, -1, generate_treasures(treasures), generate_ghost(ghosts)),
-        Room("Hall", "The hall is extremely long", 5, 1, -1, -1, generate_treasures(treasures)),
+        HauntedRoom("Green House", "Its very green", 8, -1, 0, -1, generate_treasures(treasures), generate_ghost(ghosts)),
+        Room("Hall", "The hall is extremely long", 5, 1, -1, 8, generate_treasures(treasures)),
         Room("Basement", "It's extremely dark, you need to turn on a light", -1, -1, -1, 1, generate_treasures(treasures)),
         Room("Living Room", "It's super cozy in here surprisingly", -1, 3, -1, -1, generate_treasures(treasures)),
         HauntedRoom("Satanic Room", "It's a room filled with a lot of dead bodies", -1, -1, -1, 4, generate_treasures(treasures), ghosts[1]),
-        ShopRoom("Shop", "It's a shop", 0, -1, -1, -1, shop_items)
+        ShopRoom("Shop", "It's a shop", 0, -1, -1, -1, shop_items),
+        Room("Conservatory", "Its very cold", -1, 2, 3, -1, generate_treasures(treasures))
     ]
 
     player = Player("Player", "You are a player", [], rooms[0])
@@ -291,7 +289,7 @@ def main():
     while not game_over:
         item_found = False
         command = input(">>> ").strip().lower()
-        if command == "where":
+        if command == "look":
             where(player)
 
         elif command == "n":
@@ -310,10 +308,10 @@ def main():
             if not player.room.is_shop():
                 item = input("What do you want to pick up? ").strip().lower()
                 for thing in player.room.things:
-                    if thing.name.strip().lower() == item:
+                    if thing.name.strip().lower().startswith(item):
                         player.add(thing)
                         player.room.remove(thing)
-                        print("You picked up " + item)
+                        print("You picked up " + thing.name)
                         break
             else:
                 print("You can't pick up anything in a shop")
@@ -322,10 +320,10 @@ def main():
             if not player.room.is_shop():
                 item = input("What do you want to drop? ").strip().lower()
                 for thing in player.things:
-                    if thing.name.strip().lower() == item:
+                    if thing.name.strip().lower().startswith(item):
                         player.room.add(thing)
                         player.remove(thing)
-                        print("You dropped " + item)
+                        print("You dropped " + thing.name)
                         break
             else:
                 print("You can't drop anything in a shop")
@@ -334,8 +332,8 @@ def main():
             player.get_things()
 
         elif command == "light":
-            if is_in_room(player, "Basement"):
-                if has_item(player, "Torch"):
+            if player.is_in_room("Basement"):
+                if player.has_item("Torch"):
                     player.room.w = 6
                     player.room.description = "The room is no longer dark"
                     print("You shine your torch\nYou can see now")
@@ -348,7 +346,7 @@ def main():
             print("Your health is:", player.health)
 
         elif command == "scan":
-            if has_item(player, "EMF detector"):
+            if player.has_item("EMF detector"):
                 if player.room.is_haunted():
                     player.damage(player.room.ghost_scan())
                     for i in generate_ghost_drops(ghost_drops):
@@ -360,7 +358,7 @@ def main():
             else:
                 print("You don't have an EMF detector")
         elif command == "drink":
-            if has_item(player, "Potion"):
+            if player.has_item("Potion"):
                 player.heal(100)
                 for thing in player.things:
                     if thing.name == "Potion":
@@ -374,7 +372,6 @@ def main():
                 if new_item != "Nothing" and sell == False:
                     player.add(new_item)
                     player.money = new_money
-                    print("You bought a " + new_item.name)
                 elif new_item != "Nothing" and sell == True:
                     player.remove(new_item)
                     player.money = new_money
@@ -407,7 +404,7 @@ def main():
             print("Not A Valid Command")
 
         print("\n")
-        if is_dead(player):
+        if player.is_dead():
             print("You died")
             input("Press enter to exit...")
             game_over = True
